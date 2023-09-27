@@ -1,0 +1,22 @@
+{
+  "name": "pms_user_management",
+  "version": "1.0.0",
+  "description": "user management for pms app",
+  "main": "app.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "author": "knowledgeworks",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "supertest": "^6.3.3"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.1",
+    "mongoose": "^7.4.4"
+  }
+}

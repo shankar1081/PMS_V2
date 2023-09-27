@@ -1,0 +1,185 @@
+http:
+  port: 8080
+admin:
+  port: 9876
+  host: localhost
+apiEndpoints:
+  api:
+    host: localhost
+    paths: "/ip"
+  auth:
+    host: localhost
+    paths: ["/auth", "/auth/*"]
+  users:
+    host: localhost
+    paths: ["/users", "/users/*"]
+  tm:
+    host: localhost
+    paths: ["/tm", "/tm/*"]
+  project:
+    host: localhost
+    paths: ["/project", "/project/*"]
+
+serviceEndpoints:
+  httpbin:
+    url: "https://httpbin.org"
+  authService:
+    url: "http://localhost:8000"
+  userService:
+    url: "http://localhost:8001"
+  tmService:
+    url: "http://localhost:8002"
+  projectService:
+    url: "http://localhost:8003"
+policies:
+  - basic-auth
+  - cors
+  - jwt
+  - expression
+  - log
+  - proxy
+  - rate-limit
+  - request-transformer
+pipelines:
+  default:
+    apiEndpoints:
+      - api
+    policies:    
+      - proxy:
+          - action:
+              serviceEndpoint: httpbin
+              changeOrigin: true
+  authPipeline:
+    apiEndpoints:
+      - auth
+    policies:
+      - cors:
+          action:
+            origin: ["*"]
+            methods:
+              - HEAD
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            credentials: true
+      - proxy:
+          - action:
+              serviceEndpoint: authService
+  userPipeline:
+    apiEndpoints:
+      - tm
+    policies:
+      - cors:
+          action:
+            origin: ["*"]
+            methods:
+              - HEAD
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            credentials: true
+      - log:
+          action:
+            message: "tm ${req.method}"
+      - jwt:
+          action:
+            secretOrPublicKey: "5CEOC9Ow2DAhOfKg9BtPYy"
+            checkCredentialExistence: false
+      - request-transformer:
+          action:
+            body:
+              add:
+                user: req.user
+            allowedHeaders:
+              [
+                "Content-type",
+                "Authorization",
+                "Origin",
+                "Access-Control-Allow-Origin",
+                "Accept",
+                "Options",
+                "X-Requested-With",
+              ]
+      - proxy:
+          action:
+            serviceEndpoint: userService
+  tmPipeline:
+    apiEndpoints:
+      - tm
+    policies:
+      - cors:
+          action:
+            origin: ["*"]
+            methods:
+              - HEAD
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            credentials: true
+      - log:
+          action:
+            message: "tm ${req.method}"
+      - jwt:
+          action:
+            secretOrPublicKey: "5CEOC9Ow2DAhOfKg9BtPYy"
+            checkCredentialExistence: false
+      - request-transformer:
+          action:
+            body:
+              add:
+                user: req.user
+            allowedHeaders:
+              [
+                "Content-type",
+                "Authorization",
+                "Origin",
+                "Access-Control-Allow-Origin",
+                "Accept",
+                "Options",
+                "X-Requested-With",
+              ]
+      - proxy:
+          action:
+            serviceEndpoint: tmService
+  projectPipeline:
+    apiEndpoints:
+      - project
+    policies:
+      - cors:
+          action:
+            origin: ["*"]
+            methods:
+              - HEAD
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            credentials: true
+      - log:
+          action:
+            message: "project ${req.method}"
+      - jwt:
+          action:
+            secretOrPublicKey: "5CEOC9Ow2DAhOfKg9BtPYy"
+            checkCredentialExistence: false
+      - request-transformer:
+          action:
+            body:
+              add:
+                user: req.user
+            allowedHeaders:
+              [
+                "Content-type",
+                "Authorization",
+                "Origin",
+                "Access-Control-Allow-Origin",
+                "Accept",
+                "Options",
+                "X-Requested-With",
+              ]
+      - proxy:
+          action:
+            serviceEndpoint: projectService
