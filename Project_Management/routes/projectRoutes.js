@@ -26,9 +26,9 @@ router.get('/getUom/:serviceName', verifyToken, projectController.getUom); //not
 router.get('/viewFiles/:id', verifyToken, projectController.viewFiles);
 router.post('/acceptTask', verifyToken, projectController.accepttask);//not-tested
 router.post('/saveMessage', verifyToken, projectController.saveMessage);//not-tested
-
-
-
+router.post('/getFiles', verifyToken,projectController.getFiles);
+router.post('/downloadFile',verifyToken,projectController.downloadFile);
+router.post('/uploadCompleted',verifyToken,projectController.CompletedFile);
 
 
 module.exports = router;

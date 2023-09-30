@@ -14,6 +14,7 @@ const Languages = require("../models/languages");
 const Archiver = require('archiver');
 const Service = require('../models/servicesUom');
 const User = require('../models/users');
+const {folderUpload} = require('../Utilities/upload')
 
 /**TEST */
 
@@ -776,6 +777,23 @@ const downloadTargetFile = async (req, res) => {
 
 /**ENDS */
 
+/**DOWNLOAD FILE */
+
+const downloadFile = async (req, res) => {
+  try {
+    const file = await path.join(__dirname, '../public/assets/Upload/', req.body.fileName)
+    res.sendFile(file);
+
+  } catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+
+    res.status(500).send(errorResponse);
+  }
+
+}
+
+/**ENDS */
+
 /**FINAL FILE DOWNLOAD */
 
 const finalFileDownload = async (req, res) => {
@@ -905,38 +923,67 @@ const viewFiles = async (req, res) => {
 
 /** ACCEPT TASK */
 
+// const accepttask = async (req, res) => {
+//   try {
+
+//     var fileId = req.body.folderFiles.fileId;
+//     var taskId = req.body.folderFiles.tasks._id;
+
+//     if (req.body.folderFiles.fileId) {
+//       const accept = await CProject.updateOne({ _id: req.body._id, "folderFiles.fileId": req.body.folderFiles.fileId }, {
+//         $set: {
+//           "folderFiles.$[outer].tasks.$[inner]": req.body.folderFiles.tasks,
+
+//         }
+//       }, {
+//         "arrayFilters": [
+//           { "outer.fileId": fileId },
+//           { "inner._id": ObjectId(taskId) }
+//         ]
+//       })
+
+//       console.log(accept)
+//       res.json(accept)
+//     } else {
+//       throw new Error('File Id not found')
+//     }
+
+//   } catch (error) {
+
+//     let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+
+//     res.status(500).send(errorResponse);
+//   }
+
+// }
+
 const accepttask = async (req, res) => {
   try {
-
-    var fileId = req.body.folderFiles.fileId;
-    var taskId = req.body.folderFiles.tasks._id;
-
-    if (req.body.folderFiles.fileId) {
-      const accept = await CProject.updateOne({ _id: req.body._id, "folderFiles.fileId": req.body.folderFiles.fileId }, {
+    let fileId = req.body['folderFiles.fileId'];
+    let taskId = req.body['folderFiles.tasks._id'];
+    const updatedTasks = req.body['folderFiles.tasks'];
+    if (req.body['folderFiles.fileId']) {
+      const accept = await CProject.updateOne({ _id: req.body._id, "folderFiles.fileId": fileId }, {
         $set: {
-          "folderFiles.$[outer].tasks.$[inner]": req.body.folderFiles.tasks,
-
+          "folderFiles.$[outer].tasks": updatedTasks
         }
       }, {
         "arrayFilters": [
           { "outer.fileId": fileId },
-          { "inner._id": ObjectId(taskId) }
+          { "inner._id": new ObjectId(taskId) }
         ]
       })
-
       console.log(accept)
       res.json(accept)
+
     } else {
       throw new Error('File Id not found')
     }
-
   } catch (error) {
-
     let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
-
     res.status(500).send(errorResponse);
+    console.log(error)
   }
-
 }
 
 /**ENDS */
@@ -1071,6 +1118,49 @@ const mergeRows = async (req, res) => {
 
 /**Ends */
 
+/**GET FILES */
+
+const getFiles = async (req, res) => {
+
+  try {
+    const files = await CProject.findOne({ _id: req.body.pid }, { folderFiles: { $elemMatch: { _id: req.body.fid } } })
+    await res.json(files)
+  } catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+  }
+}
+
+/**ENDS */
+
+/**UPLOAD COMPLETE / COMPLETED FILE */
+
+const CompletedFile = async (req,res)=>{
+  try {
+    await folderUpload(req,res)
+    if(req.user.user.designation == 'Translator'){
+      let data =  JSON.parse(req.body.data)
+         
+          
+          const update = await CProject.updateOne({ _id: data._id, "folderFiles.fileId": data.folderFiles.fileId }, {
+              $set: {
+                  "folderFiles.$.fileStatus" : "Completed",
+                  "folderFiles.$.completedFile": req.files[0].filename
+              }
+          }, { new: true })
+
+          if(update){
+            res.json({ statusCode: 200 });  
+          }
+    }
+  } catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+  }
+}
+
+/**ENDS */
+
 module.exports = {
   test,
   saveProject,
@@ -1088,5 +1178,8 @@ module.exports = {
   getUom,
   viewFiles,
   accepttask,
-  saveMessage
+  saveMessage,
+  getFiles,
+  downloadFile,
+  CompletedFile
 };

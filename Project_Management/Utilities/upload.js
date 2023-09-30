@@ -196,4 +196,5 @@ const saveFile = function (req, res) {
 module.exports = {
   saveFile,
   recursiveMsg,
+  folderUpload
 };
