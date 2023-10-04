@@ -130,7 +130,7 @@ const saveProject = async function (req, res) {
     if (req.body.projectFile) {
       // Construct the source directory path
       let srcDir = path.join(__dirname, req.body.projectFile[0]);
-      console.log("srcDir========>", srcDir);
+      // console.log("srcDir========>", srcDir);
 
       // Construct the target directory path
       let tarDir = path.join(__dirname, srcDir);
@@ -1161,6 +1161,370 @@ const CompletedFile = async (req,res)=>{
 
 /**ENDS */
 
+const saveVendor = async (req, res) => {
+
+  try {
+    req.body.taskData.assignedBy = req.user.user.name;
+    const data = req.body.data[0];
+    console.log(req.body.taskData);
+     await CProject.aggregate([
+      { $unwind: "$folderFiles" },
+      { $unwind: "$folderFiles.tasks" },
+      {
+        $match: {
+          $and: [
+            { "folderFiles._id": new mongoose.Types.ObjectId(req.body.fid) },
+            { "folderFiles.tasks.serviceType": req.body.serviceType },
+            { "folderFiles.tasks.closedOn": { $exists: false } },
+          ],
+        },
+      },
+    ]).sort({ createdOn: 1 });
+
+    if (data) {
+      if (data[0] !== undefined) {
+        const fileId = data[0].folderFiles.fileId;
+        const taskId = data[0].folderFiles.tasks._id;
+
+        data[0].folderFiles.tasks.isCancelled = true;
+        data[0].folderFiles.tasks.closedOn = req.body.taskData.assignedOn;
+        data[0].folderFiles.tasks.closedBy = req.user.user.name;
+        
+         let dataC = await CProject.updateOne(
+          {
+            _id: req.body.data[0].folderFiles._id,
+            // _id: data[0].folderFiles.tasks[0]._id.$oid, //Change
+
+            "folderFiles.fileId": fileId,
+          },
+          {
+            $set: {
+              "folderFiles.$[outer].tasks.$[inner]": data[0].folderFiles.tasks,
+              // "folderFiles.$[outer].tasks.$[inner]": req.body.data.taskData,
+            },
+          },
+          {
+            arrayFilters: [{ "outer.fileId": fileId }, { "inner._id": taskId }],
+          }
+        );
+          console.log("dataC====>",dataC);
+         await CProject.updateOne(
+          { _id: req.body.pid, "folderFiles._id": req.body.fid },
+          {
+            $set: {
+              projectStatus: "In Progress",
+
+              currentPhase: req.body.serviceType,
+
+              "folderFiles.$.assignedTo": req.body.vId,
+
+              "folderFiles.$.fileStatus": "Assigned",
+
+              "folderFiles.$.assignedDate": new Date(),
+
+              "folderFiles.$.assignedBy": req.user.user.name,
+
+              "folderFiles.$.currentPhase": req.body.serviceType,
+            },
+            $push: { "folderFiles.$.tasks": req.body.taskData },
+          }
+          
+        );
+} 
+    }
+    
+// console.log("req.body.data[0]._id",req.body.data[0].folderFiles._id);
+console.log("data[0].folderFiles._id",req.body.data[0].folderFiles._id);
+
+    const userData = await Users.find({ empId: req.body.vId });
+    if (userData.length > 0) {
+      const emailParams = {
+        // fileId: req.body.data.fileId,
+        fileId: req.body.data[0].folderFiles.fileId,    // Changer here
+        serviceType: req.body.serviceType,
+        name: req.user.user.name,
+      };
+    
+      // console.log("fileId", req.body.data[0].folderFiles.fileId)
+      let html = generateEmailTemplate("saveVendor", emailParams);
+      sendMail(
+        data[0].email,
+        req.user.user.email,
+        req.body.data.fileId + "- Task Assigned",
+        html
+      );
+    };
+    res.json({ statusCode: 200 });
+  } catch (error) {
+    let errorResponse = response.generateResponse(
+      error,
+      "An error occurred",
+      500,
+      null
+    );
+    res.status(500).send(errorResponse);
+    console.log(error);
+  }
+};
+
+/**DELETE TASK */
+const deleteAssignedTasks = async (req, res) => {
+  console.log(req.body._id)
+  try {
+    let taskData = await CProject.findOne({ _id: req.body._id }, { folderFiles: { $elemMatch: { _id: req.body.folderId } } })
+    console.log("taskData:", taskData); // Log the taskData to check what it contains
+
+    let files = [...taskData.folderFiles]
+    let tasks = [...files[0].tasks]
+    console.log("Number of tasks:", tasks.length);
+
+    let status = tasks.length == 1 ? "Init" : "Assigned";
+    if (files.completeFile) {
+      status = "Completed"
+    }
+   console.log("Status:", status);
+    CProject.updateOne({
+      _id: req.body._id,
+      "folderFiles._id": req.body.folderId,
+    }, {
+      $set: {
+        "folderFiles.$.fileStatus": status,
+      },
+      $pull: {
+        "folderFiles.$.tasks": {
+          _id: req.body.taskId,
+        }
+      }
+    })
+    .then((result) => {
+      console.log("Update Result:", result);
+      res.send({ message: "done" });
+    }) .catch((error) => {
+        let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+        res.status(500).send(errorResponse);
+        console.log("Update Error:", error); 
+      })
+  }catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+    console.log(error)
+  }
+}
+/**ENDS */
+
+/**GET PARTNER */
+
+const getPartner = async (req, res) =>{
+  try {
+    let data;
+  if (req.body.serviceType == 'DTP') {
+    data = await Partner.aggregate([{
+      $match: {
+        "typesOfServices.serviceType": "Desktop Publishing"
+      }
+    }])
+  }
+  else if (req.body.serviceType == 'Translation') {
+    data = await Partner.aggregate([{
+      $match: {
+        $and: [{ 'typesOfServices.sourceLanguage': req.body.sl },
+        { 'typesOfServices.targetLanguage': req.body.tl },
+        { "typesOfServices.serviceType": "Translation" }
+        ]
+      }
+    }])
+  }
+  else {
+    data = await Partner.aggregate([{
+      $match: {
+        $and: [{ 'typesOfServices.sourceLanguage': req.body.sl },
+        { 'typesOfServices.targetLanguage': req.body.tl },
+        { $or: [{ "typesOfServices.serviceType": "Proof Reading" }, { "typesOfServices.serviceType": "Translation" }] }
+        ]
+      }
+    }])
+    res.json(data);
+  }} catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+/**ENDS */
+
+
+/**Add Partner Count */
+
+const addPartnerCount = async (req, res) => {
+  console.log(req.body);
+  // console.log(req.body.folderFiles.fileId)
+
+  try {
+    var fileId = req.body["folderFiles.fileId"];
+    var taskId = req.body["folderFiles.tasks._id"];
+    const updatedTasks = req.body['folderFiles.tasks'];
+
+    console.log("File ID:", fileId);
+    console.log("Task ID:", taskId);
+
+    if (req.body["folderFiles.fileId"]) {
+      const data = await CProject.updateOne(
+        {
+          _id: req.body._id, "folderFiles.fileId": req.body["folderFiles.fileId"],
+        },
+        {
+          $set: {
+            "folderFiles.$[outer].tasks": updatedTasks
+          },
+        },
+        {
+          arrayFilters: [
+            { "outer.fileId": fileId },
+
+            { "inner._id": new ObjectId(taskId) },
+          ],
+        }
+      );
+    
+        res.json({ statusCode: 200 });
+        console.log("data", data);
+    }
+  } catch (error) {
+    let errorResponse = response.generateResponse(
+      error,
+      "An error occurred",
+      500,
+      null
+    );
+    res.status(500).send(errorResponse);
+    console.log(error);
+  }
+};
+
+/**ENDS */
+
+/**Edit File Type */
+
+const editFileType = async (req, res) => {
+  try {
+   let data = await CProject.updateOne({ _id: req.body.pid, "folderFiles._id": req.body.fid },
+   { $set: { "folderFiles.$.fileType": req.body.fileType } }
+    )
+    res.json({ statusCode: 200 })
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+/**ENDS */
+
+/**UPLOAD TEMPLATE */
+
+const uploadTemplate = async (req, res) => {
+  try{
+    await CProject.updateOne({ _id: req.body.pid, "folderFiles._id": req.body.fid }, 
+    { $set: { "folderFiles.$.template": req.body.template } })
+      res.json({ statusCode: 200 })
+      }catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+  
+  /**ENDS */
+
+  /**Assign Bulk Vendor */
+
+const assignBulkVendor = async (req, res) => {
+  debugger;
+  try {
+    var vendorpromises = [];
+    var datatoMail = {
+      vendorId: req.body.fileData[0].vId,
+      fileIds: [],
+      serviceType: req.body.fileData[0].serviceType
+    };
+
+    for (i = 0; i < req.body.fileData.length; i++) {
+      var fileDataTemp = req.body.fileData[i]
+      datatoMail.fileIds.push(fileDataTemp.data.fileId)
+      fileDataTemp.taskData.assignedBy = req.user.user.name;
+      const data = await CProject.aggregate([
+        { $unwind: '$folderFiles' },
+        { $unwind: '$folderFiles.tasks' },
+        { $match: { $and: [{ "folderFiles._id": new mongoose.Types.ObjectId(fileDataTemp.fid) }, { "folderFiles.tasks.serviceType": fileDataTemp.serviceType }, { "folderFiles.tasks.closedOn": { $exists: false } }] } },
+
+      ]).sort({ createdOn: 1 });
+      // console.log("data==============>",data);
+
+      if (data && data[0] !== undefined) {
+        var fileId = data[0].folderFiles.fileId;
+        var taskId = data[0].folderFiles.tasks._id;
+        data[0].folderFiles.tasks.isCancelled = true
+        data[0].folderFiles.tasks.closedOn = fileDataTemp.taskData.assignedOn
+        data[0].folderFiles.tasks.closedBy = req.user.user.name;
+  
+          let dataUpdate = await CProject.updateOne(
+            { _id: data[0]._id, "folderFiles.fileId": data[0].folderFiles.fileId },
+             {
+            $set: {
+              "folderFiles.$[outer].tasks.$[inner]": data[0].folderFiles.tasks,
+            }
+          }, {
+            "arrayFilters": [
+              { "outer.fileId": fileId },
+              { "inner._id": taskId }
+            ]
+          },
+          )
+          console.log("dataUpdate", dataUpdate);
+        
+      } else {
+        let dataUpdateinelse = await CProject.updateOne({ _id: fileDataTemp.pid, "folderFiles._id": fileDataTemp.fid }, {
+          $set: {
+            projectStatus: "In Progress",
+            currentPhase: fileDataTemp.serviceType,
+            "folderFiles.$.assignedTo": fileDataTemp.vId,
+            "folderFiles.$.fileStatus": "Assigned",
+            "folderFiles.$.assignedDate": new Date(),
+            "folderFiles.$.assignedBy": req.user.user.name,
+            "folderFiles.$.currentPhase": fileDataTemp.serviceType
+          },
+          $push: { "folderFiles.$.tasks": fileDataTemp.taskData }
+        },
+        )
+        console.log("dataUpdateinelse",dataUpdateinelse);
+      }
+
+      vendorpromises.push("resolved") // changesssss
+    }
+
+    await Promise.all(vendorpromises);
+    var files = datatoMail.fileIds.join();
+  
+    let vendorMail = await Users.findOne({ empId: datatoMail.vendorId });
+
+    const emailParams = {
+      files: datatoMail.fileIds.join(),
+      serviceType: req.body.fileData[0].serviceType,
+      name: req.user.user.name,
+    };
+    let html = generateEmailTemplate("assignBulkVendor", emailParams);
+    console.log(html);
+
+    // sendMail("techteam@knowledgew.com", "Pass@1123", vendorMail.email, req.user.user.email, "Bulk Assign Files" + "- Task Assigned", html)
+
+    res.json({ statusCode: 200 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+
+/**ENDS */
+
 module.exports = {
   test,
   saveProject,
@@ -1181,5 +1545,13 @@ module.exports = {
   saveMessage,
   getFiles,
   downloadFile,
-  CompletedFile
+  mergeRows,
+  CompletedFile,
+  saveVendor,
+  deleteAssignedTasks,
+  getPartner,
+  addPartnerCount,
+  editFileType,
+  uploadTemplate,
+  assignBulkVendor
 };
