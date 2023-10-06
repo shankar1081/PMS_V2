@@ -1513,7 +1513,7 @@ const assignBulkVendor = async (req, res) => {
     let html = generateEmailTemplate("assignBulkVendor", emailParams);
     console.log(html);
 
-    // sendMail("techteam@knowledgew.com", "Pass@1123", vendorMail.email, req.user.user.email, "Bulk Assign Files" + "- Task Assigned", html)
+    sendMail(vendorMail.email, req.user.user.email, "Bulk Assign Files" + "- Task Assigned", html)
 
     res.json({ statusCode: 200 });
   } catch (err) {
@@ -1522,6 +1522,208 @@ const assignBulkVendor = async (req, res) => {
   }
 }
 
+
+/**ENDS */
+
+
+/**projectreportpa */
+
+const projectreportpa = async (req, res) => {
+  try {
+    new Date(req.body.startDate)
+    const data = await CProject.aggregate([
+      {
+        "$unwind": "$folderFiles"
+      },
+      { $match: { cDate: { $gte: new Date(req.body.startDate), $lt: new Date(req.body.endDate) } } },
+      {
+        "$group": {
+          "_id": "$projectName",
+          "total": {
+            "$sum": "$folderFiles.wordCount"
+          },
+          projectName: { $first: "$projectName" },
+          projectStatus: { $first: "$projectStatus" },
+          tat: { $first: "$tat" },
+          sourceLanguage: { $first: "$sourceLanguage" },
+          targetLanguage: { $first: "$targetLanguage" },
+          createdOn: { $first: "$createdOn" },
+          priority: { $first: "$priority" },
+          country: { $first: "$country" },
+          poNumber: { $first: "$poNumber" },
+          closedOn: { $first: "$closedOn" },
+          userName: { $first: "$userName" }
+        }
+      },
+    ]);
+    res.json({ statusCode: 200 });
+  } catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+    console.log(error)
+  }
+}
+
+/**ENDS */
+
+/**filesReports */
+
+const filesReports = async (req, res) => {
+  try{
+  await CProject.aggregate([
+      { $match: { createdOn: { $gte:req.body.startDate, $lt: req.body.endDate } } },
+      { $unwind: "$folderFiles" },
+      {
+          $project: {
+              _id: 0,
+              projectName: 1,
+              projectStatus:1,
+              sourceLanguage: 1,
+              fileType:"$folderFiles.fileType",
+              targetLanguage: 1,
+              tat:1,
+              fileId: "$folderFiles.fileId",
+              wordCount: {$filter:{input:"$folderFiles.tasks",as:"word_count",cond:{"$cond": [
+                  { "$ne": ["$$word_count.wordCount", null] },
+                  "$$word_count.wordCount",
+                  0
+              ]}}},
+              completedFile:"$folderFiles.finalSubFile",
+              createdOn:1,
+              fileName:"$folderFiles.fileName",
+              createdBy:"$userName",
+              wun:"$folderFiles.tcName",
+              country:1,
+              closedOn:1,
+              poNumber:1
+          }
+      }
+  ])
+  res.json( { statusCode : 200} )
+}catch (error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+  console.log(error)
+}}
+
+/**ENDS */
+
+/**e2bfilesReports */
+
+const e2bfilesReports = async (req, res) => {
+  try{
+   let aggregateData = await CProject.aggregate(
+      [
+        {
+          $match: {
+            cDate: {
+              $gte: new Date(req.body.startDate),
+              $lte: new Date(req.body.endDate),
+            },
+            projectStatus: "Completed",
+            projectType: "e2b",
+          },
+        },
+        { $unwind: "$folderFiles" },
+        {
+          $project: {
+            _id: 0,
+            projectName: 1,
+            projectstatus: 1,
+            sourceLanguage: 1,
+            targetLanguage: 1,
+            tat: 1,
+            fileId: "$folderFiles.fileId",
+            wordCount: {
+              $filter: {
+                input: "$folderFiles.tasks",
+                as: "word_count",
+                cond: {
+                  $cond: [
+                    { $ne: ["$$word_count.wordCount", null] },
+                    "$$word_count.wordCount",
+                    0,
+                  ],
+                },
+              },
+            },
+            completedFile: "$folderFiles.finalSubFile",
+            createdOn: 1,
+            fileName: "$folderFiles.fileName",
+            createdBy: "$userName",
+            wun: "$folderFiles.tcName",
+            country: 1,
+            closedOn: 1,
+          },
+        },
+      ])
+      console.log(aggregateData);
+      res.json( { statusCode : 200 } )
+  }catch (error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+    console.log(error)
+  }}
+
+  /**Ends */
+
+  /**icsrfilesReports */
+
+const icsrfilesReports = async (req, res) => {
+  try{
+  let aggregateData = await CProject.aggregate(
+    [
+      {
+        $match: {
+          cDate: {
+            $gte: new Date(req.body.startDate),
+            $lte: new Date(req.body.endDate),
+          },
+          projectStatus: "Completed",
+          projectType: "icsr",
+        },
+      },
+      { $unwind: "$folderFiles" },
+      {
+        $project: {
+          _id: 0,
+          projectName: 1,
+          projectstatus: 1,
+          sourceLanguage: 1,
+          targetLanguage: 1,
+          tat: 1,
+          fileId: "$folderFiles.fileId",
+          wordCount: {
+            $filter: {
+              input: "$folderFiles.tasks",
+              as: "word_count",
+              cond: {
+                $cond: [
+                  { $ne: ["$$word_count.wordCount", null] },
+                  "$$word_count.wordCount",
+                  0,
+                ],
+              },
+            },
+          },
+          completedFile: "$folderFiles.finalSubFile",
+          createdOn: 1,
+          fileName: "$folderFiles.fileName",
+          createdBy: "$userName",
+          wun: "$folderFiles.tcName",
+          country: 1,
+          closedOn: 1,
+        },
+      },
+    ]
+  )
+  console.log("aggregateData",aggregateData);
+  res.json( { statusCode : 200} )
+}catch(error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+  console.log(error)
+}};
 
 /**ENDS */
 
@@ -1553,5 +1755,9 @@ module.exports = {
   addPartnerCount,
   editFileType,
   uploadTemplate,
-  assignBulkVendor
+  assignBulkVendor,
+  projectreportpa,
+  filesReports,
+  e2bfilesReports,
+  icsrfilesReports
 };

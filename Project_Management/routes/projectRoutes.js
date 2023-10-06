@@ -30,12 +30,16 @@ router.post('/getFiles', verifyToken,projectController.getFiles);
 router.post('/downloadFile',verifyToken,projectController.downloadFile);
 router.post("/mergeRows",verifyToken,projectController.mergeRows)
 router.post('/uploadCompleted',verifyToken,projectController.CompletedFile);
-router.post('/saveVendor',verifyToken,projectController.saveVendor);
+router.post('/saveVendor',verifyToken,projectController.saveVendor); // needs more testing
 router.post("/deleteTask",verifyToken,projectController.deleteAssignedTasks);
 router.post('/getPartner',verifyToken,projectController.getPartner);
 router.post('/savePartnerWordCount', verifyToken,projectController.addPartnerCount);
 router.post('/editFileType',verifyToken,projectController.editFileType);
 router.post('/uploadTemplate',verifyToken,projectController.uploadTemplate);
 router.post('/assignBulkVendor',verifyToken,projectController.assignBulkVendor);
+router.post('/projectreportpa',verifyToken,projectController.projectreportpa);
+router.post('/filesReports',verifyToken,projectController.filesReports);
+router.post("/e2bfilesReports", verifyToken,projectController.e2bfilesReports);
+router.post("/icsrfilesReports", verifyToken,projectController.icsrfilesReports);
 
 module.exports = router;
