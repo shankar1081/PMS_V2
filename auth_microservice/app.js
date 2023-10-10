@@ -6,7 +6,7 @@ const app = express();
 const PORT = 8000;
 
 mongoose
-  .connect("mongodb://127.0.0.1:27017/PMS_USER", {
+  .connect("mongodb://127.0.0.1:27017/PMSproject", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -18,6 +18,9 @@ mongoose
   });
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
 app.use("/auth", authRoutes);
 
 app.listen(PORT, () => {

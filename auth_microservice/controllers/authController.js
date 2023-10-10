@@ -4,23 +4,40 @@ const bcrypt = require("bcrypt");
 
 async function login(req, res) {
   const { username, password } = req.body;
+  console.log(username, password)
   try {
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ email:username });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
-
+    console.log(password, user.password)
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.status(401).json({ message: "Invalid password" });
     }
-
-    const token = jwt.sign(
-      { userId: user._id, roles: user.role },
+    console.log(user)
+    let newUser = user
+    if(user){
+      let userDetails = {
+        userId:newUser._id,
+        name:newUser.name,
+        email:newUser.email,
+        designation:newUser.designation,
+        empId:newUser.empId,
+        department:newUser.department,
+        status:newUser.status,
+        level:newUser.level,
+      }
+      console.log(userDetails)
+      const token = await jwt.sign(
+      userDetails,
       "5CEOC9Ow2DAhOfKg9BtPYy"
     );
     res.json({ token });
+    }
+    
   } catch (error) {
+    console.log(error)
     res.status(500).json({ message: "An error occurred" });
   }
 }

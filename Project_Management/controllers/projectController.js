@@ -8,6 +8,7 @@ const { sendMail } = require("../Utilities/emailService");
 require("dotenv").config({ path: "./config/.env" });
 const response = require("../Utilities/response");
 const CProject = require("../models/Project");
+const Users = require("../models/users");
 const srcDir = process.env.SRC_DIR;
 const uploadPath = process.env.UPLOAD_PATH;
 const Languages = require("../models/languages");
@@ -15,12 +16,13 @@ const Archiver = require('archiver');
 const Service = require('../models/servicesUom');
 const User = require('../models/users');
 const {folderUpload} = require('../Utilities/upload')
+const mongoose = require ('mongoose')
 
 /**TEST */
 
 const test = async (req,res)=>{
-  console.log(req.body.data[0].folderFiles.fileId)
-  await res.send(req.body.data[0].folderFiles.fileId)
+  //console.log(req.body.data[0].folderFiles.fileId)
+  res.send("Hello")
 }
 
 /**ENDS */
@@ -1233,22 +1235,27 @@ const saveVendor = async (req, res) => {
 } 
     }
     
-// console.log("req.body.data[0]._id",req.body.data[0].folderFiles._id);
 console.log("data[0].folderFiles._id",req.body.data[0].folderFiles._id);
 
     const userData = await Users.find({ empId: req.body.vId });
     if (userData.length > 0) {
       const emailParams = {
         // fileId: req.body.data.fileId,
-        fileId: req.body.data[0].folderFiles.fileId,    // Changer here
+        fileId: req.body.data[0].folderFiles.fileId,
         serviceType: req.body.serviceType,
         name: req.user.user.name,
       };
     
       // console.log("fileId", req.body.data[0].folderFiles.fileId)
       let html = generateEmailTemplate("saveVendor", emailParams);
-      sendMail(
-        data[0].email,
+      // sendMail(
+      //   userData[0].email,
+      //   req.user.user.email,
+      //   req.body.data.fileId + "- Task Assigned",
+      //   html
+      // );
+      console.log(
+        userData[0].email,
         req.user.user.email,
         req.body.data.fileId + "- Task Assigned",
         html
@@ -1727,6 +1734,110 @@ const icsrfilesReports = async (req, res) => {
 
 /**ENDS */
 
+/**getFilesCountReport */
+
+const getFilesCountReport = async (req, res) => {
+
+  try{
+    const projectData = await CProject.aggregate(
+      [
+        getMonthAndYear,
+        { $match: { month: req.body.month, year: req.body.year } },
+        { $match: { "folderFiles.tasks.serviceType": "Review" } },
+        getLatestReview,
+        getLatestReviewFor,
+        convertToDateClosedOn,
+        convertToDateStage, 
+        compareDates,
+        getDateCount,
+      ])
+      res.json( { statusCode : 200} )
+  
+    }catch(error) {
+        let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+        res.status(500).send(errorResponse);
+      }
+  }
+  
+  /**ENDS */
+
+  /**getFullCountFilesReport */
+
+const getFullCountFilesReport = async (req, res) => {
+  try{
+  let monthIteration = [];
+  for (let i = 1; i <= 12; i++) {
+        const integratedFileCount = await CProject.aggregate(
+          [
+            getMonthAndYear,
+            { $match: { month: i, year: req.body.year } },
+            { $match: { "folderFiles.tasks.serviceType": "Review" } },
+            getLatestReview,
+            getLatestReviewFor,
+            convertToDateClosedOn,
+            convertToDateStage,
+            compareDates,
+            getDateCount,
+          ]
+        )
+        monthIteration.push(integratedFileCount);
+  }
+  res.json(monthIteration);
+}catch(error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+  }}
+
+/**ENDS */
+
+/**getProjectsCount */
+
+const getProjectsCount = async (req, res) => {
+  try{
+  const projectData = await CProject.aggregate(
+    [
+      getMonthAndYear,
+      { $match: { month: req.body.month, year: req.body.year } },
+      convertToDateProjectClosedOn,
+      convertToDateStage,
+      compareProjectDates,
+      getDateCount,
+    ]
+  )
+  res.json({ statusCode: 200 });
+}catch(error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+}}
+
+/**ENDS */
+
+/**getFullProjectsCount */
+
+const getFullProjectsCount = async (req, res) => {
+  try{
+  let monthIteration = [];
+  for (let i = 1; i <= 12; i++) {
+        const integratedFileCount = await CProject.aggregate(
+          [
+            getMonthAndYear,
+            { $match: { month: i, year: req.body.year } },
+            convertToDateProjectClosedOn,
+            convertToDateStage,
+            compareProjectDates,
+            getDateCount,
+          ]
+        )
+        monthIteration.push(integratedFileCount);
+  }
+  res.json(monthIteration);
+}catch(error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+}};
+
+/**ENDS */
+
 module.exports = {
   test,
   saveProject,
@@ -1759,5 +1870,10 @@ module.exports = {
   projectreportpa,
   filesReports,
   e2bfilesReports,
-  icsrfilesReports
+  icsrfilesReports,
+  getFilesCountReport,
+  getFullCountFilesReport,
+  getProjectsCount,
+  getProjectsCount,
+  getFullProjectsCount
 };
