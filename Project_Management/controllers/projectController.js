@@ -17,11 +17,14 @@ const Service = require('../models/servicesUom');
 const User = require('../models/users');
 const {folderUpload} = require('../Utilities/upload')
 const mongoose = require ('mongoose')
+const kafkaService = require('../Utilities/kafka_service')
+const ObjectId = require('mongodb').ObjectId;
 
 /**TEST */
 
 const test = async (req,res)=>{
   //console.log(req.body.data[0].folderFiles.fileId)
+  console.log(req.params.id)
   res.send("Hello")
 }
 
@@ -443,6 +446,7 @@ const getClientProject = async (req, res) => {
 
 const getPartnerFiles = async (req, res) => {
   try {
+    const skip = req.params.skip
     const aggregateQuery = [
       { $unwind: "$folderFiles" },
 
@@ -458,6 +462,9 @@ const getPartnerFiles = async (req, res) => {
             { "folderFiles.tasks.closedBy": req.user.user.empId },
           ],
         },
+      },
+      {
+        $skip: req.params.skip ? parseInt(req.params.skip) : 0,
       },
 
       { $limit: 200 },
@@ -731,19 +738,19 @@ const saveFinalFile = async (req, res) => {
       };
 
       let html = generateEmailTemplate("finalSave", emailParams);
-      await sendMail(
-        [
-          "karan.dhawan@parexel.com",
-          "ritika.trehan@parexel.com",
-          "anjana.saklani@parexel.com",
-          "vikas.kumar1@parexel.com",
-          "amit.kumar3@parexel.com",
-          "parexel@knowledgew.com",
-        ],
-        req.user.user.email,
-        req.body.prname + "-Project Completed",
-        html
-      );
+      // await sendMail(
+      //   [
+      //     "karan.dhawan@parexel.com",
+      //     "ritika.trehan@parexel.com",
+      //     "anjana.saklani@parexel.com",
+      //     "vikas.kumar1@parexel.com",
+      //     "amit.kumar3@parexel.com",
+      //     "parexel@knowledgew.com",
+      //   ],
+      //   req.user.user.email,
+      //   req.body.prname + "-Project Completed",
+      //   html
+      // );
 
       res.json({ statusCode: 200 });
     } else {
@@ -783,7 +790,7 @@ const downloadTargetFile = async (req, res) => {
 
 const downloadFile = async (req, res) => {
   try {
-    const file = await path.join(__dirname, '../public/assets/Upload/', req.body.fileName)
+    const file = await path.join(__dirname, '../uploads', req.body.fileName)
     res.sendFile(file);
 
   } catch (error) {
@@ -798,17 +805,27 @@ const downloadFile = async (req, res) => {
 
 /**FINAL FILE DOWNLOAD */
 
-const finalFileDownload = async (req, res) => {
-  const file = await CProject.updateOne({ _id: req.body.pid, "folderFiles._id": req.body.fid }, { $set: { "folderFiles.$.fileStatus": "Downloaded" } }, function (err, data) {
-    if (data) {
-      res.sendFile(path.join(__dirname, '../angular5/src/assets/upload/Translated', req.body.fid + ".pdf"));
-    } else {
-      console.log(JSON.stringify(err))
-    }
-  })
-}
 
-/**ends */
+const finalFileDownload = async (req, res) => {
+  try{
+  const data = await CProject.updateOne({ _id: req.body.pid, "folderFiles._id": req.body.fid }, { $set: { "folderFiles.$.fileStatus": "Downloaded" } }).exec()
+    if (data) {
+      let sendFilePath = path.join(__dirname,'../uploads/Instructions', req.body.fid + ".pdf");
+      res.status(200).sendFile(sendFilePath);
+    console.log("sendFilePath========>",sendFilePath);
+    } else {
+      let errorResponse = response.generateResponse(error, "An error occurred Data not found", 500, null);
+      res.status(500).send(errorResponse);
+      console.log("ERROR=========>",error)
+    }
+    // console.log(data);
+} catch(error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+  console.log(error)
+}};
+
+/**ENDS */
 
 /**DOWNLOAD FILE */
 
@@ -856,10 +873,12 @@ const getUom = async (req, res) => {
 /**VIEW FILES */
 
 const viewFiles = async (req, res) => {
+  console.log(req.params.id)
 
   try {
 
     const prodet = await CProject.findOne({ _id: req.params.id }).exec();
+    console.log(prodet)
 
 
 
@@ -875,7 +894,7 @@ const viewFiles = async (req, res) => {
 
             try {
 
-              const user = await users.findOne({ empId: task.partnerId }).exec();
+              const user = await Users.findOne({ empId: task.partnerId }).exec();
 
               if (user !== null) {
 
@@ -1838,6 +1857,277 @@ const getFullProjectsCount = async (req, res) => {
 
 /**ENDS */
 
+/**UploadTcFile */
+
+// const UploadTCFile = function (req, res) {
+    
+//   var pdfData = {
+//       pdf_sign:{
+//           poNumber:req.body.dataofProject.poNumber,
+//           title:req.body.tcname,
+//           source:req.body.dataofProject.sourceLanguage,
+//           target:req.body.dataofProject.targetLanguage,
+//           date_of_start:req.body.dataofProject.createdOn,
+//           date_of_end:req.body.dataofFile.tasks.closedOn,
+//           project_id: randomString()+'_'+req.body.tcname
+
+//       }
+//   }
+
+//   var stringify = JSON.stringify(pdfData);
+//           new Promise((resolve,reject)=>{
+//              return kafkaService.sendToProducer("readPDF",stringify,function(message,err){
+                
+//                   if(message){
+                     
+//                       CProject.updateOne({ _id: req.body.pid, "folderFiles._id": req.body.fid }, { $set: { "folderFiles.$.tcname": req.body.tcname,"folderFiles.$.signatureFile":pdfData.pdf_sign.project_id+".pdf" } }, function (err, data) {
+//                           if (data) {
+                           
+                             
+                             
+//                                   return resolve()
+                             
+                            
+//                           } else {
+//                               console.log(JSON.stringify(err))
+//                           }
+//                       })
+                          
+                      
+//                   }
+//                   else{
+//                       return reject()
+//                   }
+               
+//               })
+//           }).then(result=>{
+//               res.json({ statusCode: 200 })
+//           }).catch(err=>{
+//               res.json({statusCode:400})
+//           })
+ 
+// }
+
+
+/**Ends */
+
+/**getDailyReport */
+
+const getDailyReport = async (req, res) => {
+  debugger;
+  try{
+  let fullData = {
+    filesCount: 0,
+    delivered: 0,
+    inTransCompleted: 0,
+    inReviewCompleted: 0,
+    inTransAssigned: 0,
+    inReviewAssigned: 0,
+    inTAT: 0,
+    inInit: 0,
+    inLeftOut: 0,
+  };
+  const rows = await CProject.find(
+    {
+      cDate: {
+        $gte: new Date(req.body.startDate),
+        $lte: new Date(req.body.endDate),
+      },
+      projectType: req.body.projectType,
+    },
+    { folderFiles: 1 });
+      fullData.filesCount = rows.length;
+      const rowsdeli = await CProject.find(
+        {
+          cDate: {
+            $gte: new Date(req.body.startDate),
+            $lte: new Date(req.body.endDate),
+          },
+          projectStatus: "Completed",
+          projectType: req.body.projectType,
+        });
+        fullData.delivered = rowsdeli.length;
+        const rowstrans = await CProject.find(
+            {
+              cDate: {
+                $gte: new Date(req.body.startDate),
+                $lte: new Date(req.body.endDate),
+              },
+              projectType: req.body.projectType,
+              $and: [
+                { "folderFiles.tasks.serviceType": "Translation" },
+                { "folderFiles.tasks.closedOn": { $exists: true } },
+              ],
+            });
+            fullData.inTransCompleted = rowstrans.length;
+            const rowsrev = await CProject.find(
+                {
+                  cDate: {
+                    $gte: new Date(req.body.startDate),
+                    $lte: new Date(req.body.endDate),
+                  },
+                  projectType: req.body.projectType,
+                  $and: [
+                    { "folderFiles.tasks.serviceType": "Review" },
+                    { "folderFiles.tasks.closedOn": { $exists: true } },
+                  ],
+                });
+                  fullData.inReviewCompleted = rowsrev.length;
+                  const rowstat = await CProject.find(
+                    {
+                      cDate: {
+                        $gte: new Date(req.body.startDate),
+                        $lte: new Date(req.body.endDate),
+                      },
+                      projectType: req.body.projectType,
+                    },
+                    { closedOn: 1, createdOn: 1 })
+                      const tatData = rowstat.filter(function (tatrow) {
+                        if (
+                          JSON.parse(JSON.stringify(tatrow)).closedOn !==
+                          undefined
+                        ) {
+                          return (
+                            moment(
+                              new Date(
+                                JSON.parse(JSON.stringify(tatrow)).closedOn
+                              )
+                            ).diff(
+                              new Date(
+                                moment(
+                                  JSON.parse(JSON.stringify(tatrow)).createdOn
+                                )
+                              ),
+                              "hours"
+                            ) <= 24
+                          );
+                        }
+                      });
+                      console.log(tatData.length);
+                      fullData.inTAT = tatData.length;
+                      const initData = await CProject.find(
+                        {
+                          cDate: {
+                            $gte: new Date(req.body.startDate),
+                            $lte: new Date(req.body.endDate),
+                          },
+                          projectType: req.body.projectType,
+                          "folderFiles.fileStatus": "Init",
+                        })
+                          fullData.inInit = initData.length;
+                          console.log(initData);
+                          const transAssigned = await  CProject.find(
+                            {
+                              cDate: {
+                                $gte: new Date(req.body.startDate),
+                                $lte: new Date(req.body.endDate),
+                              },
+                              projectType: req.body.projectType,
+                              $and: [
+                                {
+                                  "folderFiles.tasks.serviceType":
+                                    "Translation",
+                                },
+                                {
+                                  "folderFiles.tasks.closedOn": {
+                                    $exists: false,
+                                  },
+                                },
+                              ],
+                            })
+                              fullData.inTransAssigned = transAssigned.length;
+                              const reviewAssigned = await CProject.find(
+                                {
+                                  cDate: {
+                                    $gte: new Date(req.body.startDate),
+                                    $lte: new Date(req.body.endDate),
+                                  },
+                                  projectType: req.body.projectType,
+                                  $and: [
+                                    {
+                                      "folderFiles.tasks.serviceType": "Review",
+                                    },
+                                    {
+                                      "folderFiles.tasks.closedOn": {
+                                        $exists: false,
+                                      },
+                                    },
+                                  ],
+                                })
+                                  fullData.inReviewAssigned =
+                                    reviewAssigned.length;
+                                    const leftOut = await CProject.find(
+                                    {
+                                      cDate: {
+                                        $gte: new Date(req.body.startDate),
+                                        $lte: new Date(req.body.endDate),
+                                      },
+                                      projectType: req.body.projectType,
+
+                                      "folderFiles.tasks": {
+                                        $exists: true,
+                                        $size: 0,
+                                      },
+                                    },
+                                  );
+                                  console.log(leftOut.length);
+
+                                  fullData.inLeftOut = leftOut.length;
+                                  
+                                  res.send(fullData);                
+  }catch(error) {
+    let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+    res.status(500).send(errorResponse);
+    console.log(error)
+  }};
+
+/**ENDS */
+
+
+/**getWordCountByLanguage */
+
+const getWordCountByLanguage = async (req, res) => {
+  try{
+  let aggregateData = await CProject.aggregate(
+    [
+      {
+        $unwind: "$folderFiles",
+      },
+      {
+        $unwind: "$folderFiles.tasks",
+      },
+      {
+        $match: {
+          cDate: {
+            $gte: new Date(req.body.startDate),
+            $lt: new Date(req.body.endDate),
+          },
+          projectType: req.body.projectType,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            source: "$sourceLanguage",
+            target: "$targetLanguage",
+          },
+          totalWordCount: {
+            $sum: "$folderFiles.tasks.wordCount",
+          },
+        },
+      },
+    ]
+  )
+  console.log(aggregateData);
+  res.json(aggregateData)
+}catch(error) {
+  let errorResponse = response.generateResponse(error, "An error occurred", 500, null);
+  res.status(500).send(errorResponse);
+  console.log(error)
+}};
+
+/**ENDS */
+
 module.exports = {
   test,
   saveProject,
@@ -1875,5 +2165,9 @@ module.exports = {
   getFullCountFilesReport,
   getProjectsCount,
   getProjectsCount,
-  getFullProjectsCount
+  getFullProjectsCount,
+  // UploadTCFile,
+  finalFileDownload,
+  getDailyReport,
+  getWordCountByLanguage
 };

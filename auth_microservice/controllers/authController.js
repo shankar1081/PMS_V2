@@ -17,7 +17,7 @@ async function login(req, res) {
     }
     console.log(user)
     let newUser = user
-    if(user){
+    if(user){ // changed here
       let userDetails = {
         userId:newUser._id,
         name:newUser.name,
@@ -31,7 +31,7 @@ async function login(req, res) {
       console.log(userDetails)
       const token = await jwt.sign(
       userDetails,
-      "5CEOC9Ow2DAhOfKg9BtPYy"
+      "Developers"
     );
     res.json({ token });
     }

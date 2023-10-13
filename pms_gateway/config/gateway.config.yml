@@ -161,10 +161,10 @@ pipelines:
       - log:
           action:
             message: "project ${req.method}"
-      - jwt:
-          action:
-            secretOrPublicKey: "5CEOC9Ow2DAhOfKg9BtPYy"
-            checkCredentialExistence: false
+      # - jwt:
+      #     action:
+      #       secretOrPublicKey: "Developers"
+      #       checkCredentialExistence: false
       - request-transformer:
           action:
             body:

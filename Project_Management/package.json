@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@kenjiuno/msgreader": "^1.4.0",
+    "archiver": "^5.1.0",
     "child_process": "^1.0.2",
     "csvtojson": "^2.0.8",
     "dotenv": "^16.3.1",
@@ -31,7 +32,6 @@
     "nodemailer": "^6.9.4",
     "number-to-words": "^1.2.4",
     "open-exchange-rates": "^0.3.0",
-    "path": "^0.12.7",
-    "archiver": "^5.1.0"
+    "path": "^0.12.7"
   }
 }
